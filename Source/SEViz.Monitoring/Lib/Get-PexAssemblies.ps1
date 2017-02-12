@@ -20,6 +20,7 @@
 # Getting the value of the environment variable
 $vsDir = [environment]::GetEnvironmentVariable("VS140COMNTOOLS").TrimEnd("\Tools")
 
+
 # Checking if the VS14 installation exists
 if($vsDir -ne $null) {
 
@@ -43,9 +44,9 @@ if($vsDir -ne $null) {
 	}
 
 	# Writing out if error occured
-	if($isErroneous -eq $true) {
-		Write-Error "Problem occured during copying a file. (Do you have Enterprise version of VS2015?)"
-	}
-} else {
-	Write-Error "VS140COMNTOOLS environment variable is not found. (Do you have an installation of VS2015?)"
-}
+#	if($isErroneous -eq $true) {
+#		Write-Error "Problem occured during copying a file. (Do you have Enterprise version of VS2015?)"
+#	}
+#} else {
+#	Write-Error "VS140COMNTOOLS environment variable is not found. (Do you have an installation of VS2015?)"
+#}
