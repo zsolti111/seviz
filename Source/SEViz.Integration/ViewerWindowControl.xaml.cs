@@ -25,6 +25,7 @@
 
 namespace SEViz.Integration
 {
+    using CFGlib;
     using Common.Model;
     using EnvDTE;
     using GraphSharp.Controls;
@@ -47,13 +48,13 @@ namespace SEViz.Integration
     public partial class ViewerWindowControl : UserControl
     {
 
-        private SENode currentSubtreeRoot;
+        private CFGNode currentSubtreeRoot;
         private ViewerWindow _parent;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ViewerWindowControl"/> class.
         /// </summary>
-        public ViewerWindowControl(ViewerWindow parent)
+        public ViewerWindowControl ( ViewerWindow parent )
         {
             _parent = parent;
             InitializeComponent();
@@ -73,69 +74,71 @@ namespace SEViz.Integration
             GraphControl.AfterLoadingCallback = vm.LoadingFinishedCallback;
         }
 
-        public void AfterRelayout()
+        public void AfterRelayout ()
         {
             DecorateVerticesBackground();
         }
 
-        public void FindAndSelectNodesByLocation(string location, int startLine, int endLine)
+        public void FindAndSelectNodesByLocation ( string location, int startLine, int endLine )
         {
-            var foundedNodes = new List<SENode>();
+            var foundedNodes = new List<CFGNode>();
             for (int i = startLine; i <= endLine; i++)
             {
                 var matches = GraphControl.Graph.Vertices.Where(v => v.SourceCodeMappingString.Contains(location + ":" + i.ToString()));
                 foreach (var node in matches)
                 {
-                    if(!foundedNodes.Contains(node)) foundedNodes.Add(node);
+                    if (!foundedNodes.Contains(node))
+                        foundedNodes.Add(node);
                 }
             }
-            if(foundedNodes.Count > 0)
+            if (foundedNodes.Count > 0)
             {
                 SelectNodesVisually(foundedNodes);
-            } else
+            }
+            else
             {
                 MessageBox.Show("No nodes found for the selected source lines.", "SEViz notification", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
-        private void SelectNodesVisually(List<SENode> nodes)
+        private void SelectNodesVisually ( List<CFGNode> nodes )
         {
             DeselectAllVisually();
-            foreach(var n in nodes)
+            foreach (var n in nodes)
             {
                 n.Select();
-            }
-            DecorateVerticesBackground();   
-        }
-
-        private void DeselectAllVisually()
-        {
-            foreach(var v in GraphControl.Graph.Vertices)
-            {
-                if(v.IsSelected)
-                v.Deselect();      
             }
             DecorateVerticesBackground();
         }
 
-        private void DecorateVerticesBackground()
+        private void DeselectAllVisually ()
         {
-            foreach(var v in GraphControl.Graph.Vertices)
+            foreach (var v in GraphControl.Graph.Vertices)
+            {
+                if (v.IsSelected)
+                    v.Deselect();
+            }
+            DecorateVerticesBackground();
+        }
+
+        private void DecorateVerticesBackground ()
+        {
+            foreach (var v in GraphControl.Graph.Vertices)
             {
                 DecorateVertexBackground(v);
             }
         }
 
-        private void DecorateVertexBackground(SENode v)
+        private void DecorateVertexBackground ( CFGNode v )
         {
             if (GraphControl.GetVertexControl(v) != null)
             {
                 GraphControl.GetVertexControl(v).Background = new SolidColorBrush(Converters.SevizColorToWpfColor(v.Color));
             }
-            
+
         }
 
-        private void SelectNodeWithProperties(SENode node)
+        private void SelectNodeWithProperties ( CFGNode node )
         {
             IVsWindowFrame frame = null;
 
@@ -157,7 +160,7 @@ namespace SEViz.Integration
             }
 
             var selContainer = new Microsoft.VisualStudio.Shell.SelectionContainer();
-            var items = new List<SENode>();
+            var items = new List<CFGNode>();
 
             items.Add(node);
             selContainer.SelectedObjects = items;
@@ -168,7 +171,7 @@ namespace SEViz.Integration
                 track.OnSelectChange(selContainer);
             }
 
-            if ((Keyboard.Modifiers & ModifierKeys.Control) > 0)
+            if (( Keyboard.Modifiers & ModifierKeys.Control ) > 0)
             {
                 // If control is pressed then to nothing
             }
@@ -176,20 +179,22 @@ namespace SEViz.Integration
             {
                 foreach (var v in GraphControl.Graph.Vertices)
                 {
-                    if (v.IsSelected) v.Deselect();
+                    if (v.IsSelected)
+                        v.Deselect();
                 }
                 DecorateVerticesBackground();
             }
 
-            
+
             IVsStatusbar statusBar = (IVsStatusbar)_parent.GetVsService(typeof(SVsStatusbar));
 
             // Make sure the status bar is not frozen
             int frozen;
             statusBar.IsFrozen(out frozen);
 
-            if (frozen != 0) statusBar.FreezeOutput(0);
-            
+            if (frozen != 0)
+                statusBar.FreezeOutput(0);
+
             // Set the status bar text and make its display static.
             statusBar.SetText(node.MethodName + " (" + node.SourceCodeMappingString + ")");
 
@@ -199,17 +204,17 @@ namespace SEViz.Integration
 
         }
 
-        private void VisuallySelectNode(SENode node)
+        private void VisuallySelectNode ( CFGNode node )
         {
             node.Select();
             DecorateVerticesBackground();
         }
 
-        private void MapNodesToSourceLinesBookmarks(SENode node)
+        private void MapNodesToSourceLinesBookmarks ( CFGNode node )
         {
             var dte = _parent.GetVsService(typeof(SDTE)) as EnvDTE.DTE;
-            var fileUrl = node.SourceCodeMappingString.Split(':')[0] + ":" + node.SourceCodeMappingString.Split(':')[1];
-            var line = node.SourceCodeMappingString.Split(':')[2];
+            var fileUrl = node.SourceCodeMappingString.Split(':') [0] + ":" + node.SourceCodeMappingString.Split(':') [1];
+            var line = node.SourceCodeMappingString.Split(':') [2];
             var window = dte.ItemOperations.OpenFile(fileUrl);
             if (window != null)
             {
@@ -226,23 +231,24 @@ namespace SEViz.Integration
         /// </summary>
         /// <param name="sender">The event sender.</param>
         /// <param name="e">The event args.</param>
-        private void Node_OnClick(object sender, RoutedEventArgs e)
+        private void Node_OnClick ( object sender, RoutedEventArgs e )
         {
-            var node = (sender as VertexControl).Vertex as SENode;
+            var node = ( sender as VertexControl ).Vertex as CFGNode;
             if (!node.IsSelected)
             {
                 SelectNodeWithProperties(node);
                 VisuallySelectNode(node);
-            } else
+            }
+            else
             {
-                if(!node.SourceCodeMappingString.Equals(""))
+                if (!node.SourceCodeMappingString.Equals(""))
                     MapNodesToSourceLinesBookmarks(node);
             }
         }
 
-        public List<SENode> GetNodesOfRun(string runId)
+        public List<CFGNode> GetNodesOfRun ( string runId )
         {
-            return GraphControl.Graph.Vertices.Where(v => v.Runs.Split(';').Contains(runId.Split(';')[0])).ToList();
+            return GraphControl.Graph.Vertices.Where(v => v.Runs.Split(';').Contains(runId.Split(';') [0])).ToList();
         }
 
         /// <summary>
@@ -252,12 +258,13 @@ namespace SEViz.Integration
         /// <param name="e">The event args.</param>
         [SuppressMessage("Microsoft.Globalization", "CA1300:SpecifyMessageBoxOptions", Justification = "Sample code")]
         [SuppressMessage("StyleCop.CSharp.NamingRules", "SA1300:ElementMustBeginWithUpperCaseLetter", Justification = "Default event handler naming pattern")]
-        private void Node_OnRightClick(object sender, RoutedEventArgs e)
+        private void Node_OnRightClick ( object sender, RoutedEventArgs e )
         {
-            
-            currentSubtreeRoot = ((sender as VertexControl).Vertex as SENode);
 
-            if (currentSubtreeRoot.IsCollapsed) return;
+            currentSubtreeRoot = ( ( sender as VertexControl ).Vertex as CFGNode );
+
+            if (currentSubtreeRoot.IsCollapsed)
+                return;
 
             if (currentSubtreeRoot.CollapsedSubtreeNodes.Count == 0)
             {
@@ -270,10 +277,10 @@ namespace SEViz.Integration
 
                 // Collapsing
                 // If there are edges going out of it
-                IEnumerable<SEEdge> edges = null;
-                if(GraphControl.Graph.TryGetOutEdges(currentSubtreeRoot,out edges))
+                IEnumerable<CFGEdge> edges = null;
+                if (GraphControl.Graph.TryGetOutEdges(currentSubtreeRoot, out edges))
                 {
-                    if(edges.Count() == 0)
+                    if (edges.Count() == 0)
                     {
                         // Has no out edges --> leaf node --> select the nodes of the matching run of the leaf node
                         var vm = (SEGraphViewModel)DataContext;
@@ -281,55 +288,59 @@ namespace SEViz.Integration
                     }
                 }
 
-                var search = new BreadthFirstSearchAlgorithm<SENode, SEEdge>(GraphControl.Graph);
-                search.SetRootVertex(currentSubtreeRoot);
-                search.FinishVertex += BFS_FinishVertex;
-                search.Finished += (p,args) =>
-                {
-                    if (currentSubtreeRoot.CollapsedSubtreeEdges.Count > 0 && currentSubtreeRoot.CollapsedSubtreeNodes.Count > 0)
-                    {
-                        foreach (var edge in currentSubtreeRoot.CollapsedSubtreeEdges)
-                        {
-                            GraphControl.Graph.HideEdge(edge);
-                        }
-                        foreach (var node in currentSubtreeRoot.CollapsedSubtreeNodes)
-                        {
-                            GraphControl.Graph.HideVertex(node);
-                        }
-                        SelectNodeWithProperties(currentSubtreeRoot);
-                        currentSubtreeRoot.Collapse();
-                        DecorateVerticesBackground();
-                    }
-                };
 
-                search.Compute();
+                // đ EGÉSZ
+                ////var search = new BreadthFirstSearchAlgorithm<CFGNode, IVsCfgProviderEvents>(GraphControl.Graph);
+                ////search.SetRootVertex(currentSubtreeRoot);
+                ////search.FinishVertex += BFS_FinishVertex;
+                ////search.Finished += (p,args) =>
+                ////{
+                ////    if (currentSubtreeRoot.CollapsedSubtreeEdges.Count > 0 && currentSubtreeRoot.CollapsedSubtreeNodes.Count > 0)
+                ////    {
+                ////        foreach (var edge in currentSubtreeRoot.CollapsedSubtreeEdges)
+                ////        {
+                ////            //đ GraphControl.Graph.HideEdge(edge);
+                ////        }
+                ////        foreach (var node in currentSubtreeRoot.CollapsedSubtreeNodes)
+                ////        {
+                ////            //đ GraphControl.Graph.HideVertex(node);
+                ////        }
+                ////        SelectNodeWithProperties(currentSubtreeRoot);
+                ////        //currentSubtreeRoot.Collapse();
+                ////        DecorateVerticesBackground();
+                ////    }
+                ////};
+
+                ////search.Compute();
             }
-            else
-            {
-                // Expanding
-                foreach (var vertex in ((sender as VertexControl).Vertex as SENode).CollapsedSubtreeNodes)
-                {
-                    GraphControl.Graph.UnhideVertex(vertex);
-                    vertex.IsCollapsed = false;
-                }
-                currentSubtreeRoot.CollapsedSubtreeNodes.Clear();
 
-                GraphControl.Graph.UnhideEdges(((sender as VertexControl).Vertex as SENode).CollapsedSubtreeEdges);
-                currentSubtreeRoot.CollapsedSubtreeEdges.Clear();
+            // đ EG
+            //////else
+            //////{
+            //////    // Expanding
+            //////    foreach (var vertex in ((sender as VertexControl).Vertex as CFGNode).CollapsedSubtreeNodes)
+            //////    {
+            //////        GraphControl.Graph.UnhideVertex(vertex);
+            //////        vertex.IsCollapsed = false;
+            //////    }
+            //////    currentSubtreeRoot.CollapsedSubtreeNodes.Clear();
 
-                currentSubtreeRoot.Expand();
-                
-                DecorateVerticesBackground();
-            }
-            
+            //////    GraphControl.Graph.UnhideEdges(((sender as VertexControl).Vertex as CFGNode).CollapsedSubtreeEdges);
+            //////    currentSubtreeRoot.CollapsedSubtreeEdges.Clear();
+
+            //////    currentSubtreeRoot.Expand();
+
+            //////    DecorateVerticesBackground();
+            //////}
+
         }
 
-        
 
-        private void BFS_FinishVertex(SENode vertex)
+
+        private void BFS_FinishVertex ( CFGNode vertex )
         {
-            IEnumerable<SEEdge> edges = null;
-            if(GraphControl.Graph.TryGetOutEdges(vertex,out edges))
+            IEnumerable<CFGEdge> edges = null;
+            if (GraphControl.Graph.TryGetOutEdges(vertex, out edges))
             {
                 if (edges.Count() > 0)
                 {
@@ -342,10 +353,11 @@ namespace SEViz.Integration
 
             if (!currentSubtreeRoot.Equals(vertex))
             {
-                if(vertex.IsSelected) vertex.Deselect();
+                if (vertex.IsSelected)
+                    vertex.Deselect();
                 vertex.IsCollapsed = true;
                 currentSubtreeRoot.CollapsedSubtreeNodes.Add(vertex);
-                
+
             }
         }
 

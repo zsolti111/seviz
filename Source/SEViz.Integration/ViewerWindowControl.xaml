@@ -179,7 +179,7 @@
     </UserControl.Resources>
     <Grid>
     <zoom:ZoomControl Grid.Column="1" Grid.ColumnSpan="2">
-            <viewModel:SEGraphLayout x:Name="GraphControl" />
+            <viewModel:CFGGraphLayout x:Name="GraphControl" />
     </zoom:ZoomControl>
     </Grid>
 </UserControl>

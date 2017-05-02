@@ -23,6 +23,7 @@
  * 
  */
 
+using CFGlib;
 using Microsoft.ExtendedReflection.ComponentModel;
 using Microsoft.ExtendedReflection.Emit;
 using Microsoft.ExtendedReflection.Interpretation;
@@ -35,6 +36,7 @@ using Microsoft.Pex.Engine.ComponentModel;
 using Microsoft.Pex.Engine.Packages;
 using Microsoft.Pex.Engine.TestGeneration;
 using Microsoft.Pex.Framework.ComponentModel;
+using QuickGraph;
 using SEViz.Common.Model;
 using System;
 using System.Collections.Generic;
@@ -58,20 +60,21 @@ namespace SEViz.Monitoring
             }
         }
 
-        private Dictionary<int, SENode> Vertices
+        private Dictionary<int, CFGNode> Vertices
         {
             get; set;
         }
 
-        private Dictionary<int, Dictionary<int, SEEdge>> Edges
+        private Dictionary<int, Dictionary<int, CFGEdge>> Edges
         {
             get; set;
         }
 
-        public SEGraph Graph
+        public BidirectionalGraph<CFGNode, CFGEdge> Graph
         {
             get; private set;
         }
+
 
         private Dictionary<int, Tuple<bool, string>> EmittedTestResult
         {
@@ -98,6 +101,21 @@ namespace SEViz.Monitoring
             get; set;
         }
 
+        private string DllPath
+        {
+            get; set;
+        }
+
+        private string FunctionName
+        {
+            get; set;
+        }
+
+        public CFGCreator MyCreator
+        {
+            get; set;
+        }
+
         #endregion
 
         #region Constructors
@@ -117,6 +135,19 @@ namespace SEViz.Monitoring
         public SEVizAttribute ( string unitNamespace )
         {
             UnitNamespace = unitNamespace;
+        }
+
+
+        public SEVizAttribute ( string dllPath, string functionName )
+        {
+            DllPath = dllPath;
+            FunctionName = functionName;
+
+            CFGCreator myCreator = new CFGCreator();
+            myCreator.Create(DllPath, functionName);
+
+            MyCreator = myCreator;
+
         }
 
         #endregion
@@ -157,7 +188,7 @@ namespace SEViz.Monitoring
             {
                 // Modifying shape based on Z3 calls
                 if (Z3CallLocations.Contains(vertex.MethodName + ":" + vertex.ILOffset))
-                    vertex.Shape = SENode.NodeShape.Ellipse;
+                    vertex.Shape = CFGNode.NodeShape.Ellipse;
 
                 // Adding the path condition
                 var t = PrettyPathConditionTasks [vertex.Id];
@@ -190,304 +221,306 @@ namespace SEViz.Monitoring
                 var dir = Directory.CreateDirectory(Path.GetTempPath() + "SEViz");
 
             }
-            [SEViz(typeof(string).)]
-        // Getting the temporary folder
-        var tempDir = Path.GetTempPath() + "SEViz\\";
 
-        // Serializing the graph into graphml
-        SEGraph.Serialize(Graph, tempDir);
+            //đ
+            //[SEViz(typeof(string).)]
+            // Getting the temporary folder
+            var tempDir = Path.GetTempPath() + "SEViz\\";
+
+            // Serializing the graph into graphml
+            CFGCreator.Serialize(Graph, tempDir);
 
         }
 
-    #endregion
+        #endregion
 
-    #region Run package
+        #region Run package
 
-    public object BeforeRun ( IPexPathComponent host )
-    {
-        return null;
-    }
-
-    public void AfterRun ( IPexPathComponent host, object data )
-    {
-        // Getting the executions nodes in the current path
-        var nodesInPath = host.PathServices.CurrentExecutionNodeProvider.ReversedNodes.Reverse().ToArray();
-
-        // Getting the sequence id of the current run
-        var runId = host.ExplorationServices.Driver.Runs;
-
-        // Iterating over the nodes in the path
-        foreach (var node in nodesInPath)
+        public object BeforeRun ( IPexPathComponent host )
         {
-            var vertex = new SENode(node.UniqueIndex, null, null, null, null, null, false);
+            return null;
+        }
 
-            // Adding the method name this early in order to color edges
-            string methodName = null;
-            int offset = 0;
-            if (node.CodeLocation.Method == null)
+        public void AfterRun ( IPexPathComponent host, object data )
+        {
+            // Getting the executions nodes in the current path
+            var nodesInPath = host.PathServices.CurrentExecutionNodeProvider.ReversedNodes.Reverse().ToArray();
+
+            // Getting the sequence id of the current run
+            var runId = host.ExplorationServices.Driver.Runs;
+
+            // Iterating over the nodes in the path
+            foreach (var node in nodesInPath)
             {
-                if (node.InCodeBranch.Method != null)
+                var vertex = new CFGNode(node.UniqueIndex, false);
+
+                // Adding the method name this early in order to color edges
+                string methodName = null;
+                int offset = 0;
+                if (node.CodeLocation.Method == null)
                 {
-                    methodName = node.InCodeBranch.Method.FullName;
-                }
-            }
-            else
-            {
-                methodName = node.CodeLocation.Method.FullName;
-                offset = node.CodeLocation.Offset;
-            }
-            // Setting the method name
-            vertex.MethodName = methodName;
-
-            // Setting the offset
-            vertex.ILOffset = offset;
-
-            var nodeIndex = nodesInPath.ToList().IndexOf(node);
-            if (nodeIndex > 0)
-            {
-                var prevNode = nodesInPath [nodeIndex - 1];
-                // If there is no edge between the previous and the current node
-                if (!( Edges.ContainsKey(prevNode.UniqueIndex) && Edges [prevNode.UniqueIndex].ContainsKey(node.UniqueIndex) ))
-                {
-
-                    var prevVertex = Vertices [prevNode.UniqueIndex];
-
-                    var edge = new SEEdge(new Random().Next(), prevVertex, vertex);
-
-                    Dictionary<int, SEEdge> outEdges = null;
-                    if (Edges.TryGetValue(prevNode.UniqueIndex, out outEdges))
+                    if (node.InCodeBranch.Method != null)
                     {
-                        outEdges.Add(node.UniqueIndex, edge);
-                    }
-                    else
-                    {
-                        Edges.Add(prevNode.UniqueIndex, new Dictionary<int, SEEdge>());
-                        Edges [prevNode.UniqueIndex].Add(node.UniqueIndex, edge);
-                    }
-
-                    // Edge coloring based on unit border detection
-                    if (UnitNamespace != null)
-                    {
-                        // Checking if pointing into the unit from outside
-                        if (!( prevVertex.MethodName.StartsWith(UnitNamespace + ".") || prevVertex.MethodName.Equals(UnitNamespace) ) && ( vertex.MethodName.StartsWith(UnitNamespace + ".") || vertex.MethodName.Equals(UnitNamespace) ))
-                        {
-                            edge.Color = SEEdge.EdgeColor.Green;
-                        }
-
-                        // Checking if pointing outside the unit from inside
-                        if (( prevVertex.MethodName.StartsWith(UnitNamespace + ".") || prevVertex.MethodName.Equals(UnitNamespace) ) && !( vertex.MethodName.StartsWith(UnitNamespace + ".") || vertex.MethodName.Equals(UnitNamespace) ))
-                        {
-                            edge.Color = SEEdge.EdgeColor.Red;
-                        }
+                        methodName = node.InCodeBranch.Method.FullName;
                     }
                 }
-            }
-
-            // If the node is new then it is added to the list and the metadata is filled
-            if (!Vertices.ContainsKey(node.UniqueIndex))
-            {
-
-                Vertices.Add(node.UniqueIndex, vertex);
-
-                // Adding source code mapping
-                vertex.SourceCodeMappingString = MapToSourceCodeLocationString(host, node);
-
-                // Setting the border based on mapping existence
-                vertex.Border = vertex.SourceCodeMappingString == null ? SENode.NodeBorder.Single : SENode.NodeBorder.Double;
-
-                // Setting the color
-                if (nodesInPath.LastOrDefault() == node)
+                else
                 {
-                    if (!EmittedTestResult.ContainsKey(runId))
+                    methodName = node.CodeLocation.Method.FullName;
+                    offset = node.CodeLocation.Offset;
+                }
+                // Setting the method name
+                vertex.MethodName = methodName;
+
+                // Setting the offset
+                vertex.ILOffset = (uint)offset;
+
+                var nodeIndex = nodesInPath.ToList().IndexOf(node);
+                if (nodeIndex > 0)
+                {
+                    var prevNode = nodesInPath [nodeIndex - 1];
+                    // If there is no edge between the previous and the current node
+                    if (!( Edges.ContainsKey(prevNode.UniqueIndex) && Edges [prevNode.UniqueIndex].ContainsKey(node.UniqueIndex) ))
                     {
-                        vertex.Color = SENode.NodeColor.Orange;
-                    }
-                    else
-                    {
-                        if (EmittedTestResult [runId].Item1)
+
+                        var prevVertex = Vertices [prevNode.UniqueIndex];
+
+                        var edge = new CFGEdge(new Random().Next(), prevVertex, vertex);
+
+                        Dictionary<int, CFGEdge> outEdges = null;
+                        if (Edges.TryGetValue(prevNode.UniqueIndex, out outEdges))
                         {
-                            vertex.Color = SENode.NodeColor.Red;
+                            outEdges.Add(node.UniqueIndex, edge);
                         }
                         else
                         {
-                            vertex.Color = SENode.NodeColor.Green;
+                            Edges.Add(prevNode.UniqueIndex, new Dictionary<int, CFGEdge>());
+                            Edges [prevNode.UniqueIndex].Add(node.UniqueIndex, edge);
                         }
-                        vertex.GenerateTestCode = EmittedTestResult [runId].Item2;
+
+                        // Edge coloring based on unit border detection
+                        if (UnitNamespace != null)
+                        {
+                            // Checking if pointing into the unit from outside
+                            if (!( prevVertex.MethodName.StartsWith(UnitNamespace + ".") || prevVertex.MethodName.Equals(UnitNamespace) ) && ( vertex.MethodName.StartsWith(UnitNamespace + ".") || vertex.MethodName.Equals(UnitNamespace) ))
+                            {
+                                edge.Color = CFGEdge.EdgeColor.Green;
+                            }
+
+                            // Checking if pointing outside the unit from inside
+                            if (( prevVertex.MethodName.StartsWith(UnitNamespace + ".") || prevVertex.MethodName.Equals(UnitNamespace) ) && !( vertex.MethodName.StartsWith(UnitNamespace + ".") || vertex.MethodName.Equals(UnitNamespace) ))
+                            {
+                                edge.Color = CFGEdge.EdgeColor.Red;
+                            }
+                        }
+                    }
+                }
+
+                // If the node is new then it is added to the list and the metadata is filled
+                if (!Vertices.ContainsKey(node.UniqueIndex))
+                {
+
+                    Vertices.Add(node.UniqueIndex, vertex);
+
+                    // Adding source code mapping
+                    vertex.SourceCodeMappingString = MapToSourceCodeLocationString(host, node);
+
+                    // Setting the border based on mapping existence
+                    vertex.Border = vertex.SourceCodeMappingString == null ? CFGNode.NodeBorder.Single : CFGNode.NodeBorder.Double;
+
+                    // Setting the color
+                    if (nodesInPath.LastOrDefault() == node)
+                    {
+                        if (!EmittedTestResult.ContainsKey(runId))
+                        {
+                            vertex.Color = CFGNode.NodeColor.Orange;
+                        }
+                        else
+                        {
+                            if (EmittedTestResult [runId].Item1)
+                            {
+                                vertex.Color = CFGNode.NodeColor.Red;
+                            }
+                            else
+                            {
+                                vertex.Color = CFGNode.NodeColor.Green;
+                            }
+                            vertex.GenerateTestCode = EmittedTestResult [runId].Item2;
+                        }
+                    }
+                    else
+                    {
+                        vertex.Color = CFGNode.NodeColor.White;
+                    }
+
+                    // Setting the default shape
+                    vertex.Shape = CFGNode.NodeShape.Rectangle;
+
+                    // Adding path condition tasks and getting the required services
+                    TermEmitter termEmitter = new TermEmitter(host.GetService<TermManager>());
+                    SafeStringWriter safeStringWriter = new SafeStringWriter();
+                    IMethodBodyWriter methodBodyWriter = host.GetService<IPexTestManager>().Language.CreateBodyWriter(safeStringWriter, VisibilityContext.Private, 2000);
+                    PrettyPathConditionTasks.Add(vertex.Id, PrettyPrintPathCondition(termEmitter, methodBodyWriter, safeStringWriter, node));
+
+                    // Setting the status
+                    vertex.Status = node.ExhaustedReason.ToString();
+
+                    // Collecting the parent nodes for the later incremental path condition calculation
+                    if (nodeIndex > 0)
+                    {
+                        ParentNodes.Add(vertex.Id, nodesInPath [nodeIndex - 1].UniqueIndex);
+                    }
+                }
+
+                // Adding the Id of the run
+                Vertices [node.UniqueIndex].Runs += ( runId + ";" );
+            }
+        }
+
+        #endregion
+
+        public void Initialize ( IPexExplorationEngine host )
+        {
+            Graph = CFGCreator.graph;
+            Vertices = new Dictionary<int, CFGNode>();
+            Edges = new Dictionary<int, Dictionary<int, CFGEdge>>();
+            EmittedTestResult = new Dictionary<int, Tuple<bool, string>>();
+            Z3CallLocations = new List<string>();
+            PrettyPathConditionTasks = new Dictionary<int, Task<string>>();
+            ParentNodes = new Dictionary<int, int>();
+        }
+
+        public void Load ( IContainer pathContainer )
+        {
+        }
+
+        protected override void Decorate ( Name location, IPexDecoratedComponentElement host )
+        {
+            host.AddExplorationPackage(location, this);
+            host.AddPathPackage(location, this);
+        }
+
+        #region Private methods 
+
+        /// <summary>
+        /// Maps the execution node to source code location string.
+        /// </summary>
+        /// <param name="host">Host of the Pex Path Component</param>
+        /// <param name="node">The execution node to map</param>
+        /// <returns>The source code location string in the form of [documentlocation]:[linenumber]</returns>
+        private string MapToSourceCodeLocationString ( IPexPathComponent host, IExecutionNode node )
+        {
+            try
+            {
+                var symbolManager = host.GetService<ISymbolManager>();
+                var sourceManager = host.GetService<ISourceManager>();
+                MethodDefinitionBodyInstrumentationInfo nfo;
+                if (node.CodeLocation.Method == null)
+                {
+                    if (node.InCodeBranch.Method == null)
+                    {
+                        return null;
+                    }
+                    else
+                    {
+                        node.InCodeBranch.Method.TryGetBodyInstrumentationInfo(out nfo);
                     }
                 }
                 else
                 {
-                    vertex.Color = SENode.NodeColor.White;
+                    node.CodeLocation.Method.TryGetBodyInstrumentationInfo(out nfo);
                 }
-
-                // Setting the default shape
-                vertex.Shape = SENode.NodeShape.Rectangle;
-
-                // Adding path condition tasks and getting the required services
-                TermEmitter termEmitter = new TermEmitter(host.GetService<TermManager>());
-                SafeStringWriter safeStringWriter = new SafeStringWriter();
-                IMethodBodyWriter methodBodyWriter = host.GetService<IPexTestManager>().Language.CreateBodyWriter(safeStringWriter, VisibilityContext.Private, 2000);
-                PrettyPathConditionTasks.Add(vertex.Id, PrettyPrintPathCondition(termEmitter, methodBodyWriter, safeStringWriter, node));
-
-                // Setting the status
-                vertex.Status = node.ExhaustedReason.ToString();
-
-                // Collecting the parent nodes for the later incremental path condition calculation
-                if (nodeIndex > 0)
+                SequencePoint point;
+                int targetOffset;
+                nfo.TryGetTargetOffset(node.InCodeBranch.BranchLabel, out targetOffset);
+                if (symbolManager.TryGetSequencePoint(node.CodeLocation.Method == null ? node.InCodeBranch.Method : node.CodeLocation.Method, node.CodeLocation.Method == null ? targetOffset : node.CodeLocation.Offset, out point))
                 {
-                    ParentNodes.Add(vertex.Id, nodesInPath [nodeIndex - 1].UniqueIndex);
+                    return point.Document + ":" + point.Line;
                 }
-            }
-
-            // Adding the Id of the run
-            Vertices [node.UniqueIndex].Runs += ( runId + ";" );
-        }
-    }
-
-    #endregion
-
-    public void Initialize ( IPexExplorationEngine host )
-    {
-        Graph = new SEGraph();
-        Vertices = new Dictionary<int, SENode>();
-        Edges = new Dictionary<int, Dictionary<int, SEEdge>>();
-        EmittedTestResult = new Dictionary<int, Tuple<bool, string>>();
-        Z3CallLocations = new List<string>();
-        PrettyPathConditionTasks = new Dictionary<int, Task<string>>();
-        ParentNodes = new Dictionary<int, int>();
-    }
-
-    public void Load ( IContainer pathContainer )
-    {
-    }
-
-    protected override void Decorate ( Name location, IPexDecoratedComponentElement host )
-    {
-        host.AddExplorationPackage(location, this);
-        host.AddPathPackage(location, this);
-    }
-
-    #region Private methods 
-
-    /// <summary>
-    /// Maps the execution node to source code location string.
-    /// </summary>
-    /// <param name="host">Host of the Pex Path Component</param>
-    /// <param name="node">The execution node to map</param>
-    /// <returns>The source code location string in the form of [documentlocation]:[linenumber]</returns>
-    private string MapToSourceCodeLocationString ( IPexPathComponent host, IExecutionNode node )
-    {
-        try
-        {
-            var symbolManager = host.GetService<ISymbolManager>();
-            var sourceManager = host.GetService<ISourceManager>();
-            MethodDefinitionBodyInstrumentationInfo nfo;
-            if (node.CodeLocation.Method == null)
-            {
-                if (node.InCodeBranch.Method == null)
+                else
                 {
                     return null;
                 }
-                else
-                {
-                    node.InCodeBranch.Method.TryGetBodyInstrumentationInfo(out nfo);
-                }
             }
-            else
+            catch (Exception)
             {
-                node.CodeLocation.Method.TryGetBodyInstrumentationInfo(out nfo);
-            }
-            SequencePoint point;
-            int targetOffset;
-            nfo.TryGetTargetOffset(node.InCodeBranch.BranchLabel, out targetOffset);
-            if (symbolManager.TryGetSequencePoint(node.CodeLocation.Method == null ? node.InCodeBranch.Method : node.CodeLocation.Method, node.CodeLocation.Method == null ? targetOffset : node.CodeLocation.Offset, out point))
-            {
-                return point.Document + ":" + point.Line;
-            }
-            else
-            {
+                // TODO Exception handling
                 return null;
             }
         }
-        catch (Exception)
-        {
-            // TODO Exception handling
-            return null;
-        }
-    }
 
-    /// <summary>
-    /// Pretty prints the path condition of the execution node.
-    /// </summary>
-    /// <param name="host">Host of the Pex Path Component</param>
-    /// <param name="node">The execution node to map</param>
-    /// <returns>The pretty printed path condition string</returns>
-    private Task<string> PrettyPrintPathCondition ( TermEmitter emitter, IMethodBodyWriter mbw, SafeStringWriter ssw, IExecutionNode node )
-    {
-        var task = Task.Factory.StartNew(() =>
+        /// <summary>
+        /// Pretty prints the path condition of the execution node.
+        /// </summary>
+        /// <param name="host">Host of the Pex Path Component</param>
+        /// <param name="node">The execution node to map</param>
+        /// <returns>The pretty printed path condition string</returns>
+        private Task<string> PrettyPrintPathCondition ( TermEmitter emitter, IMethodBodyWriter mbw, SafeStringWriter ssw, IExecutionNode node )
         {
-            string output = "";
-            try
+            var task = Task.Factory.StartNew(() =>
             {
-                if (node.GetPathCondition().Conjuncts.Count != 0)
+                string output = "";
+                try
                 {
+                    if (node.GetPathCondition().Conjuncts.Count != 0)
+                    {
 
-                    if (emitter.TryEvaluate(node.GetPathCondition().Conjuncts, 2000, mbw)) // TODO Perf leak
+                        if (emitter.TryEvaluate(node.GetPathCondition().Conjuncts, 2000, mbw)) // TODO Perf leak
                         {
-                        for (int i = 0; i < node.GetPathCondition().Conjuncts.Count - 1; i++)
-                        {
-                            mbw.ShortCircuitAnd();
+                            for (int i = 0; i < node.GetPathCondition().Conjuncts.Count - 1; i++)
+                            {
+                                mbw.ShortCircuitAnd();
+                            }
+
+                            mbw.Statement();
+                            var safeString = ssw.ToString();
+                            output = safeString.Remove(ssw.Length - 3);
                         }
-
-                        mbw.Statement();
-                        var safeString = ssw.ToString();
-                        output = safeString.Remove(ssw.Length - 3);
                     }
                 }
-            }
-            catch (Exception) { }
-            return output;
-        });
-        return task;
-
-    }
-
-    /// <summary>
-    /// Calculates the incremental path condition of a node
-    /// </summary>
-    /// <param name="pc">The path condition of the current node</param>
-    /// <param name="prevPc">The path condition of the previous node</param>
-    /// <returns>The incremental path condition of the node</returns>
-    private string CalculateIncrementalPathCondition ( string pc, string prevPc )
-    {
-        var remainedLiterals = new List<string>();
-
-        var splittedCondition = pc.Split(new string [] { "&& " }, StringSplitOptions.None);
-        var prevSplittedCondition = prevPc.Split(new string [] { "&& " }, StringSplitOptions.None);
-
-        var currentOrdered = splittedCondition.OrderBy(c => c);
-        var prevOrdered = prevSplittedCondition.OrderBy(c => c);
-
-        remainedLiterals = currentOrdered.Except(prevOrdered).ToList(); // TODO Perf leak
-
-        Parallel.For(1, 3, ( i ) =>
-        {
-            Parallel.ForEach(prevOrdered, c =>
-            {
-                var incrementedLiteral = Regex.Replace(c, "s\\d+", n => "s" + ( int.Parse(n.Value.TrimStart('s')) + i ).ToString());
-                remainedLiterals.Remove(incrementedLiteral);
+                catch (Exception) { }
+                return output;
             });
-        });
+            return task;
 
-        var remainedBuilder = new StringBuilder();
-        foreach (var literal in remainedLiterals)
-        {
-            if (remainedLiterals.IndexOf(literal) != 0)
-                remainedBuilder.Append(" && ");
-            remainedBuilder.Append(literal);
         }
-        return remainedBuilder.ToString();
+
+        /// <summary>
+        /// Calculates the incremental path condition of a node
+        /// </summary>
+        /// <param name="pc">The path condition of the current node</param>
+        /// <param name="prevPc">The path condition of the previous node</param>
+        /// <returns>The incremental path condition of the node</returns>
+        private string CalculateIncrementalPathCondition ( string pc, string prevPc )
+        {
+            var remainedLiterals = new List<string>();
+
+            var splittedCondition = pc.Split(new string [] { "&& " }, StringSplitOptions.None);
+            var prevSplittedCondition = prevPc.Split(new string [] { "&& " }, StringSplitOptions.None);
+
+            var currentOrdered = splittedCondition.OrderBy(c => c);
+            var prevOrdered = prevSplittedCondition.OrderBy(c => c);
+
+            remainedLiterals = currentOrdered.Except(prevOrdered).ToList(); // TODO Perf leak
+
+            Parallel.For(1, 3, ( i ) =>
+            {
+                Parallel.ForEach(prevOrdered, c =>
+                {
+                    var incrementedLiteral = Regex.Replace(c, "s\\d+", n => "s" + ( int.Parse(n.Value.TrimStart('s')) + i ).ToString());
+                    remainedLiterals.Remove(incrementedLiteral);
+                });
+            });
+
+            var remainedBuilder = new StringBuilder();
+            foreach (var literal in remainedLiterals)
+            {
+                if (remainedLiterals.IndexOf(literal) != 0)
+                    remainedBuilder.Append(" && ");
+                remainedBuilder.Append(literal);
+            }
+            return remainedBuilder.ToString();
+        }
+        #endregion
     }
-    #endregion
-}
 }
