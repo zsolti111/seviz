@@ -23,6 +23,7 @@
  * 
  */
 
+using CFGlib;
 using SEViz.Common.Model;
 using System;
 using System.Globalization;
@@ -34,14 +35,14 @@ namespace SEViz.Integration.Helpers.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var color = (SEEdge.EdgeColor)value;
+            var color = (CFGEdge.EdgeColor)value;
             switch(color)
             {
-                case SEEdge.EdgeColor.Black:
+                case CFGEdge.EdgeColor.Black:
                     return "Silver";
-                case SEEdge.EdgeColor.Red:
+                case CFGEdge.EdgeColor.Red:
                     return "Red";
-                case SEEdge.EdgeColor.Green:
+                case CFGEdge.EdgeColor.Green:
                     return "Green";
                 default:
                     return "Silver";

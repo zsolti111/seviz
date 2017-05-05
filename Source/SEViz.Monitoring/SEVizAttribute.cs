@@ -70,7 +70,7 @@ namespace SEViz.Monitoring
             get; set;
         }
 
-        public BidirectionalGraph<CFGNode, CFGEdge> Graph
+        public SoftMutableBidirectionalGraph<CFGNode, CFGEdge> Graph
         {
             get; private set;
         }
@@ -381,7 +381,7 @@ namespace SEViz.Monitoring
 
         public void Initialize ( IPexExplorationEngine host )
         {
-            Graph = CFGCreator.graph;
+            Graph = new SoftMutableBidirectionalGraph<CFGNode, CFGEdge>();
             Vertices = new Dictionary<int, CFGNode>();
             Edges = new Dictionary<int, Dictionary<int, CFGEdge>>();
             EmittedTestResult = new Dictionary<int, Tuple<bool, string>>();
@@ -390,6 +390,33 @@ namespace SEViz.Monitoring
             ParentNodes = new Dictionary<int, int>();
         }
 
+
+        //đ másik az original
+        ////////public void Initialize ( IPexExplorationEngine host )
+        ////////{
+        ////////    Graph = MyCreator.graph;
+        ////////    Vertices = new Dictionary<int, CFGNode>();
+
+        ////////    foreach (var item in Graph.Vertices)
+        ////////    {
+        ////////        Vertices.Add(item.Id, item);
+
+        ////////    }
+
+        ////////    Edges = new Dictionary<int, Dictionary<int, CFGEdge>>();
+
+        ////////    foreach (var item in Graph.Edges)
+        ////////    {
+        ////////        var tempdict = new Dictionary<int, CFGEdge>();
+        ////////        tempdict.Add(item.Source.Id, item);
+        ////////        Edges.Add(item.Id, tempdict);
+
+        ////////    }
+        ////////    EmittedTestResult = new Dictionary<int, Tuple<bool, string>>();
+        ////////    Z3CallLocations = new List<string>();
+        ////////    PrettyPathConditionTasks = new Dictionary<int, Task<string>>();
+        ////////    ParentNodes = new Dictionary<int, int>();
+        ////////}
         public void Load ( IContainer pathContainer )
         {
         }
@@ -521,6 +548,9 @@ namespace SEViz.Monitoring
             }
             return remainedBuilder.ToString();
         }
+
+
+
         #endregion
     }
 }

@@ -23,6 +23,7 @@
  * 
  */
 
+using CFGlib;
 using SEViz.Common.Model;
 using System;
 using System.Globalization;
@@ -34,12 +35,12 @@ namespace SEViz.Integration.Helpers.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var border = (SENode.NodeBorder)value;
+            var border = (CFGNode.NodeBorder)value;
             switch (border)
             {
-                case SENode.NodeBorder.Single:
+                case CFGNode.NodeBorder.Single:
                     return 0;
-                case SENode.NodeBorder.Double:
+                case CFGNode.NodeBorder.Double:
                     return 1;
                 default:
                     return 0;

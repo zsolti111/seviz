@@ -289,49 +289,48 @@ namespace SEViz.Integration
                 }
 
 
-                // đ EGÉSZ
-                ////var search = new BreadthFirstSearchAlgorithm<CFGNode, IVsCfgProviderEvents>(GraphControl.Graph);
-                ////search.SetRootVertex(currentSubtreeRoot);
-                ////search.FinishVertex += BFS_FinishVertex;
-                ////search.Finished += (p,args) =>
-                ////{
-                ////    if (currentSubtreeRoot.CollapsedSubtreeEdges.Count > 0 && currentSubtreeRoot.CollapsedSubtreeNodes.Count > 0)
-                ////    {
-                ////        foreach (var edge in currentSubtreeRoot.CollapsedSubtreeEdges)
-                ////        {
-                ////            //đ GraphControl.Graph.HideEdge(edge);
-                ////        }
-                ////        foreach (var node in currentSubtreeRoot.CollapsedSubtreeNodes)
-                ////        {
-                ////            //đ GraphControl.Graph.HideVertex(node);
-                ////        }
-                ////        SelectNodeWithProperties(currentSubtreeRoot);
-                ////        //currentSubtreeRoot.Collapse();
-                ////        DecorateVerticesBackground();
-                ////    }
-                ////};
 
-                ////search.Compute();
+                var search = new BreadthFirstSearchAlgorithm<CFGNode, CFGEdge>(GraphControl.Graph);
+                search.SetRootVertex(currentSubtreeRoot);
+                search.FinishVertex += BFS_FinishVertex;
+                search.Finished += ( p, args ) =>
+                {
+                    if (currentSubtreeRoot.CollapsedSubtreeEdges.Count > 0 && currentSubtreeRoot.CollapsedSubtreeNodes.Count > 0)
+                    {
+                        foreach (var edge in currentSubtreeRoot.CollapsedSubtreeEdges)
+                        {
+                            GraphControl.Graph.HideEdge(edge);
+                        }
+                        foreach (var node in currentSubtreeRoot.CollapsedSubtreeNodes)
+                        {
+                            GraphControl.Graph.HideVertex(node);
+                        }
+                        SelectNodeWithProperties(currentSubtreeRoot);
+                        currentSubtreeRoot.Collapse();
+                        DecorateVerticesBackground();
+                    }
+                };
+
+                search.Compute();
             }
 
-            // đ EG
-            //////else
-            //////{
-            //////    // Expanding
-            //////    foreach (var vertex in ((sender as VertexControl).Vertex as CFGNode).CollapsedSubtreeNodes)
-            //////    {
-            //////        GraphControl.Graph.UnhideVertex(vertex);
-            //////        vertex.IsCollapsed = false;
-            //////    }
-            //////    currentSubtreeRoot.CollapsedSubtreeNodes.Clear();
+            else
+            {
+                // Expanding
+                foreach (var vertex in ( ( sender as VertexControl ).Vertex as CFGNode ).CollapsedSubtreeNodes)
+                {
+                    GraphControl.Graph.UnhideVertex(vertex);
+                    vertex.IsCollapsed = false;
+                }
+                currentSubtreeRoot.CollapsedSubtreeNodes.Clear();
 
-            //////    GraphControl.Graph.UnhideEdges(((sender as VertexControl).Vertex as CFGNode).CollapsedSubtreeEdges);
-            //////    currentSubtreeRoot.CollapsedSubtreeEdges.Clear();
+                GraphControl.Graph.UnhideEdges(( ( sender as VertexControl ).Vertex as CFGNode ).CollapsedSubtreeEdges);
+                currentSubtreeRoot.CollapsedSubtreeEdges.Clear();
 
-            //////    currentSubtreeRoot.Expand();
+                currentSubtreeRoot.Expand();
 
-            //////    DecorateVerticesBackground();
-            //////}
+                DecorateVerticesBackground();
+            }
 
         }
 

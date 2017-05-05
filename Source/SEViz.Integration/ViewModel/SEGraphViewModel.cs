@@ -38,7 +38,7 @@ using System.Windows;
 
 namespace SEViz.Integration.ViewModel
 {
-    public class CFGGraphLayout : GraphLayout<CFGNode, CFGEdge, BidirectionalGraph<CFGNode, CFGEdge>>
+    public class CFGGraphLayout : GraphLayout<CFGNode, CFGEdge, SoftMutableBidirectionalGraph<CFGNode, CFGEdge>>
     {
     }
 
@@ -46,8 +46,8 @@ namespace SEViz.Integration.ViewModel
     {
         #region Properties
 
-        private BidirectionalGraph<CFGNode, CFGEdge> _graph;
-        public BidirectionalGraph<CFGNode, CFGEdge> Graph
+        private SoftMutableBidirectionalGraph<CFGNode, CFGEdge> _graph;
+        public SoftMutableBidirectionalGraph<CFGNode, CFGEdge> Graph
         {
             get
             {
@@ -168,20 +168,22 @@ namespace SEViz.Integration.ViewModel
 
         }
 
-        public void LoadGraph ( BidirectionalGraph<CFGNode, CFGEdge> graph )
+        public void LoadGraph ( SoftMutableBidirectionalGraph<CFGNode, CFGEdge> graph )
         {
             if (graph == null)
             {
-                Graph = new BidirectionalGraph<CFGNode, CFGEdge>();
+                Graph = new SoftMutableBidirectionalGraph<CFGNode, CFGEdge>();
             }
             else
             {
                 foreach (var e in Graph.Edges.ToList())
                     Graph.RemoveEdge(e);
-                //đ foreach (var e in Graph.HiddenEdges.ToList()) ((List<CFGEdge>)Graph.HiddenEdges).Remove(e);
+                foreach (var e in Graph.HiddenEdges.ToList())
+                    ( (List<CFGEdge>)Graph.HiddenEdges ).Remove(e);
                 foreach (var v in Graph.Vertices.ToList())
                     Graph.RemoveVertex(v);
-                //đ foreach (var v in Graph.HiddenVertices.ToList()) ((List<CFGNode>)Graph.HiddenVertices).Remove(v);
+                foreach (var v in Graph.HiddenVertices.ToList())
+                    ( (List<CFGNode>)Graph.HiddenVertices ).Remove(v);
 
                 foreach (var v in graph.Vertices)
                     Graph.AddVertex(v);
