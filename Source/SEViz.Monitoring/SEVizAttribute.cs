@@ -45,6 +45,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows;
 
 namespace SEViz.Monitoring
 {
@@ -125,6 +126,8 @@ namespace SEViz.Monitoring
         /// </summary>
         public SEVizAttribute ()
         {
+            MessageBox.Show("YYYYYYYYYYYYYYYYYYYYYYYYYY");
+
         }
 
         //dll elérsi út + függvény
@@ -134,12 +137,15 @@ namespace SEViz.Monitoring
         /// <param name="unitNamespace">The namespace of the unit to use.</param>
         public SEVizAttribute ( string unitNamespace )
         {
+            MessageBox.Show("XXXXXXXXXXXXXXXXXXXXXX");
             UnitNamespace = unitNamespace;
         }
 
 
         public SEVizAttribute ( string dllPath, string functionName )
         {
+            MessageBox.Show("CTOR");
+
             DllPath = dllPath;
             FunctionName = functionName;
 
@@ -148,14 +154,22 @@ namespace SEViz.Monitoring
 
             MyCreator = myCreator;
 
+            foreach (var item in MyCreator.edges)
+            {
+                MessageBox.Show(item.Id.ToString());
+            }
+
         }
 
         #endregion
 
+        
         #region Exploration package
 
         public object BeforeExploration ( IPexExplorationComponent host )
         {
+
+            MessageBox.Show("BeforeExploration");
 
             // Subscribing to constraint problem handler
             host.Log.ProblemHandler += ( problemEventArgs ) =>
@@ -183,6 +197,7 @@ namespace SEViz.Monitoring
 
         public void AfterExploration ( IPexExplorationComponent host, object data )
         {
+            MessageBox.Show("AfterExploration");
 
             foreach (var vertex in Vertices.Values)
             {
@@ -215,6 +230,16 @@ namespace SEViz.Monitoring
             foreach (var edgeDictionary in Edges.Values)
                 Graph.AddEdgeRange(edgeDictionary.Values);
 
+
+
+            //đ
+            ////Graph.AddVertexRange(MyCreator.graph.Vertices);
+
+            ////Graph.AddEdgeRange(MyCreator.graph.Edges);
+
+
+
+
             // Checking if temporary SEViz folder exists
             if (!Directory.Exists(Path.GetTempPath() + "SEViz"))
             {
@@ -238,11 +263,14 @@ namespace SEViz.Monitoring
 
         public object BeforeRun ( IPexPathComponent host )
         {
+            MessageBox.Show("BeforeRun");
             return null;
         }
 
         public void AfterRun ( IPexPathComponent host, object data )
         {
+            MessageBox.Show("AfterRun");
+
             // Getting the executions nodes in the current path
             var nodesInPath = host.PathServices.CurrentExecutionNodeProvider.ReversedNodes.Reverse().ToArray();
 
@@ -381,6 +409,8 @@ namespace SEViz.Monitoring
 
         public void Initialize ( IPexExplorationEngine host )
         {
+            MessageBox.Show("INITALIZE()");
+
             Graph = new SoftMutableBidirectionalGraph<CFGNode, CFGEdge>();
             Vertices = new Dictionary<int, CFGNode>();
             Edges = new Dictionary<int, Dictionary<int, CFGEdge>>();
@@ -419,10 +449,13 @@ namespace SEViz.Monitoring
         ////////}
         public void Load ( IContainer pathContainer )
         {
+            MessageBox.Show("LOAD()");
         }
 
         protected override void Decorate ( Name location, IPexDecoratedComponentElement host )
         {
+            MessageBox.Show("DECORATE()");
+
             host.AddExplorationPackage(location, this);
             host.AddPathPackage(location, this);
         }
@@ -437,6 +470,8 @@ namespace SEViz.Monitoring
         /// <returns>The source code location string in the form of [documentlocation]:[linenumber]</returns>
         private string MapToSourceCodeLocationString ( IPexPathComponent host, IExecutionNode node )
         {
+            MessageBox.Show("MapToSourceCodeLocationString()");
+           
             try
             {
                 var symbolManager = host.GetService<ISymbolManager>();
@@ -484,6 +519,7 @@ namespace SEViz.Monitoring
         /// <returns>The pretty printed path condition string</returns>
         private Task<string> PrettyPrintPathCondition ( TermEmitter emitter, IMethodBodyWriter mbw, SafeStringWriter ssw, IExecutionNode node )
         {
+            MessageBox.Show("PrettyPrintPathCondition()");
             var task = Task.Factory.StartNew(() =>
             {
                 string output = "";
@@ -520,6 +556,9 @@ namespace SEViz.Monitoring
         /// <returns>The incremental path condition of the node</returns>
         private string CalculateIncrementalPathCondition ( string pc, string prevPc )
         {
+            MessageBox.Show("CalculateIncrementalPathCondition()");
+
+
             var remainedLiterals = new List<string>();
 
             var splittedCondition = pc.Split(new string [] { "&& " }, StringSplitOptions.None);
@@ -546,6 +585,7 @@ namespace SEViz.Monitoring
                     remainedBuilder.Append(" && ");
                 remainedBuilder.Append(literal);
             }
+
             return remainedBuilder.ToString();
         }
 
